@@ -17,6 +17,18 @@ let velocityY = 0;
 let score = 0;
 let gameRunning = false; // Game starts in a "paused" or "ready" state
 
+// Speed-related variables
+const initialGameSpeed = 100; // ms delay, 10 FPS
+let currentGameSpeed = initialGameSpeed;
+const speedIncreaseInterval = 5; // Increase speed every 5 food items eaten
+const speedIncreaseFactor = 10;   // Decrease delay by 10ms
+const minGameSpeed = 50;          // Max speed: 50ms delay (20 FPS)
+
+// Scoring-related variables
+let timeOfLastFoodEaten;
+const maxPointsPerFood = 100; // Max points for quick collection
+const timeDecayFactor = 5;   // Points lost per 100ms (e.g., 0.5 points per 100ms would be `0.5`) - Let's try 5 for a start, meaning 5 points lost per 100ms.
+
 // 3. Game Initialization Function
 function initializeGame() {
     snake = [ { x: 10, y: 10 } ];
@@ -24,6 +36,8 @@ function initializeGame() {
     velocityY = 0;
     placeFood();
     score = 0;
+    timeOfLastFoodEaten = Date.now(); // Initialize time for scoring
+    currentGameSpeed = initialGameSpeed; // Reset speed
     gameRunning = true;
     console.log("Game Initialized");
 }
@@ -100,15 +114,37 @@ function gameLoop() {
 
     // Check for Food Collision
     if (head.x === food.x && head.y === food.y) {
-        score++;
+        // New scoring logic
+        const timeToCollect = Date.now() - timeOfLastFoodEaten;
+        timeOfLastFoodEaten = Date.now(); // Reset for next food
+
+        let pointsEarned = Math.max(0, maxPointsPerFood - (timeToCollect / 100) * timeDecayFactor);
+        pointsEarned = Math.round(pointsEarned);
+        score += (pointsEarned + 10); // Add time-based points + base 10 points
+
+        console.log(`Time to collect: ${timeToCollect}ms, Points earned: ${pointsEarned} (Total for food: ${pointsEarned + 10})`);
+
         placeFood();
+        // Speed increase logic
+        // (snake.length - 1) is the number of segments grown *after* the initial one
+        if ((snake.length - 1) > 0 && (snake.length - 1) % speedIncreaseInterval === 0) {
+            currentGameSpeed = Math.max(minGameSpeed, currentGameSpeed - speedIncreaseFactor);
+            console.log("Speed increased. New delay:", currentGameSpeed);
+        }
     } else {
         snake.pop(); // Remove tail if no food eaten
     }
 
-    // Check for Wall Collision
-    if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
-        gameRunning = false;
+    // Check for Wall Collision (and wrap around)
+    if (head.x < 0) {
+        head.x = tileCount - 1;
+    } else if (head.x >= tileCount) {
+        head.x = 0;
+    }
+    if (head.y < 0) {
+        head.y = tileCount - 1;
+    } else if (head.y >= tileCount) {
+        head.y = 0;
     }
 
     // Check for Self-Collision
@@ -126,7 +162,7 @@ function gameLoop() {
     drawScore();
 
     // Repeat loop
-    setTimeout(gameLoop, 1000 / 10); // Adjust for game speed (10 FPS here)
+    setTimeout(gameLoop, currentGameSpeed); 
 }
 
 // 7. Drawing Functions
