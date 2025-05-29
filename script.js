@@ -1,204 +1,181 @@
-// 1. Canvas Setup
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const canvasWidth = 400;
-const canvasHeight = 400;
-canvas.width = canvasWidth;
-canvas.height = canvasHeight;
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('fileInput');
+    const intervalInput = document.getElementById('intervalInput');
+    const startButton = document.getElementById('startButton');
+    const slideshowContainer = document.getElementById('slideshowContainer');
+    const slideshowImage = document.getElementById('slideshowImage');
 
-// 2. Game Variables
-const gridSize = 20; // Size of each grid cell (and snake segment/food)
-const tileCount = canvas.width / gridSize; // Number of tiles in width/height
+    let imageFiles = [];
+    let remainingImages = [];
+    let shownImages = [];
+    let slideshowIntervalId = null;
+    let currentImageObjectURL = null;
 
-let snake = [ { x: 10, y: 10 } ]; // Snake's initial position
-let food = { x: 15, y: 15 };     // Food's initial position
-let velocityX = 0;
-let velocityY = 0;
-let score = 0;
-let gameRunning = false; // Game starts in a "paused" or "ready" state
+    fileInput.addEventListener('change', (event) => {
+        imageFiles = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
+        remainingImages = [];
+        shownImages = [];
+        if (imageFiles.length > 0) {
+            console.log(`Selected ${imageFiles.length} image(s).`);
+            // Optionally, display a count or list of selected files
+        } else {
+            console.log("No image files selected.");
+        }
+        // Reset UI if needed when files change
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+             if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            }
+        }
+        slideshowContainer.style.display = 'none';
+        if (slideshowIntervalId) {
+            clearInterval(slideshowIntervalId);
+            slideshowIntervalId = null;
+        }
+    });
 
-// Speed-related variables
-const initialGameSpeed = 100; // ms delay, 10 FPS
-let currentGameSpeed = initialGameSpeed;
-const speedIncreaseInterval = 5; // Increase speed every 5 food items eaten
-const speedIncreaseFactor = 10;   // Decrease delay by 10ms
-const minGameSpeed = 50;          // Max speed: 50ms delay (20 FPS)
-
-// Scoring-related variables
-let timeOfLastFoodEaten;
-const maxPointsPerFood = 100; // Max points for quick collection
-const timeDecayFactor = 5;   // Points lost per 100ms (e.g., 0.5 points per 100ms would be `0.5`) - Let's try 5 for a start, meaning 5 points lost per 100ms.
-
-// 3. Game Initialization Function
-function initializeGame() {
-    snake = [ { x: 10, y: 10 } ];
-    velocityX = 1; // Start moving right
-    velocityY = 0;
-    placeFood();
-    score = 0;
-    timeOfLastFoodEaten = Date.now(); // Initialize time for scoring
-    currentGameSpeed = initialGameSpeed; // Reset speed
-    gameRunning = true;
-    console.log("Game Initialized");
-}
-
-// 4. placeFood Function
-function placeFood() {
-    food.x = Math.floor(Math.random() * tileCount);
-    food.y = Math.floor(Math.random() * tileCount);
-
-    // Ensure food doesn't spawn on the snake
-    for (let segment of snake) {
-        if (segment.x === food.x && segment.y === food.y) {
-            placeFood(); // Recursively call if collision
+    startButton.addEventListener('click', () => {
+        if (imageFiles.length === 0) {
+            alert('Please select some images first.');
             return;
         }
-    }
-    console.log("Food placed at:", food.x, food.y);
-}
 
-// 5. Event Listener for Keyboard Input
-document.addEventListener('keydown', (event) => {
-    if (!gameRunning && (event.key === 'Enter' || event.key === ' ')) {
-        initializeGame();
-        gameLoop(); // Start the loop after initialization
-        return;
-    }
-
-    if (!gameRunning) return;
-
-    switch (event.key) {
-        case 'ArrowUp':
-            if (velocityY === 0) { // Prevent immediate reversal
-                velocityX = 0;
-                velocityY = -1;
-            }
-            break;
-        case 'ArrowDown':
-            if (velocityY === 0) {
-                velocityX = 0;
-                velocityY = 1;
-            }
-            break;
-        case 'ArrowLeft':
-            if (velocityX === 0) {
-                velocityX = -1;
-                velocityY = 0;
-            }
-            break;
-        case 'ArrowRight':
-            if (velocityX === 0) {
-                velocityX = 1;
-                velocityY = 0;
-            }
-            break;
-    }
-});
-
-// 6. Main Game Loop Function
-function gameLoop() {
-    if (!gameRunning) {
-        ctx.fillStyle = 'white';
-        ctx.font = '30px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 20);
-        ctx.font = '20px Arial';
-        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
-        ctx.fillText('Press Enter or Space to Restart', canvas.width / 2, canvas.height / 2 + 60);
-        return;
-    }
-
-    // Update Snake Position
-    const head = { x: snake[0].x + velocityX, y: snake[0].y + velocityY };
-    snake.unshift(head); // Add new head
-
-    // Check for Food Collision
-    if (head.x === food.x && head.y === food.y) {
-        // New scoring logic
-        const timeToCollect = Date.now() - timeOfLastFoodEaten;
-        timeOfLastFoodEaten = Date.now(); // Reset for next food
-
-        let pointsEarned = Math.max(0, maxPointsPerFood - (timeToCollect / 100) * timeDecayFactor);
-        pointsEarned = Math.round(pointsEarned);
-        score += (pointsEarned + 10); // Add time-based points + base 10 points
-
-        console.log(`Time to collect: ${timeToCollect}ms, Points earned: ${pointsEarned} (Total for food: ${pointsEarned + 10})`);
-
-        placeFood();
-        // Speed increase logic
-        // (snake.length - 1) is the number of segments grown *after* the initial one
-        if ((snake.length - 1) > 0 && (snake.length - 1) % speedIncreaseInterval === 0) {
-            currentGameSpeed = Math.max(minGameSpeed, currentGameSpeed - speedIncreaseFactor);
-            console.log("Speed increased. New delay:", currentGameSpeed);
+        const timerValue = parseInt(intervalInput.value, 10) * 1000;
+        if (isNaN(timerValue) || timerValue < 500) { // Minimum 0.5 seconds
+            alert('Please set a valid interval of at least 0.5 seconds.');
+            return;
         }
-    } else {
-        snake.pop(); // Remove tail if no food eaten
-    }
 
-    // Check for Wall Collision (and wrap around)
-    if (head.x < 0) {
-        head.x = tileCount - 1;
-    } else if (head.x >= tileCount) {
-        head.x = 0;
-    }
-    if (head.y < 0) {
-        head.y = tileCount - 1;
-    } else if (head.y >= tileCount) {
-        head.y = 0;
-    }
+        // Initialize image lists for the slideshow session
+        remainingImages = [...imageFiles];
+        shownImages = [];
 
-    // Check for Self-Collision
-    for (let i = 1; i < snake.length; i++) {
-        if (head.x === snake[i].x && head.y === snake[i].y) {
-            gameRunning = false;
-            break;
+        // Request fullscreen
+        if (slideshowContainer.requestFullscreen) {
+            slideshowContainer.requestFullscreen();
+        } else if (slideshowContainer.webkitRequestFullscreen) { /* Safari */
+            slideshowContainer.webkitRequestFullscreen();
+        } else if (slideshowContainer.msRequestFullscreen) { /* IE11 */
+            slideshowContainer.msRequestFullscreen();
         }
-    }
-
-    // Draw Everything
-    clearCanvas();
-    drawFood();
-    drawSnake();
-    drawScore();
-
-    // Repeat loop
-    setTimeout(gameLoop, currentGameSpeed); 
-}
-
-// 7. Drawing Functions
-function clearCanvas() {
-    ctx.fillStyle = '#333'; // Dark background for the game area
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function drawSnake() {
-    ctx.fillStyle = 'lime';
-    snake.forEach(segment => {
-        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2); // -2 for small gap
+        // The 'fullscreenchange' event listener will handle starting the slideshow
     });
-}
 
-function drawFood() {
-    ctx.fillStyle = 'red';
-    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
-}
+    function displayNextImage() {
+        if (currentImageObjectURL) {
+            URL.revokeObjectURL(currentImageObjectURL); // Clean up previous object URL
+        }
 
-function drawScore() {
-    ctx.fillStyle = 'white';
-    ctx.font = '20px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${score}`, 10, 25);
-}
+        if (remainingImages.length === 0) {
+            if (shownImages.length === 0) {
+                console.error("No images available to display.");
+                stopSlideshow(true); // Pass true to force exit fullscreen
+                alert("No images loaded or all images were invalid.");
+                return;
+            }
+            console.log("All images shown once. Reshuffling...");
+            remainingImages = [...shownImages]; // Or use [...imageFiles] to restart from the original full set.
+                                               // Using shownImages ensures any files that failed to load aren't retried until next cycle.
+            shownImages = [];
+        }
 
-// 8. Starting the Game
-// Display initial message to start the game
-function showStartMessage() {
-    clearCanvas();
-    ctx.fillStyle = 'white';
-    ctx.font = '24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Press Enter or Space to Start', canvas.width / 2, canvas.height / 2);
-}
+        const randomIndex = Math.floor(Math.random() * remainingImages.length);
+        const nextImageFile = remainingImages.splice(randomIndex, 1)[0];
+        
+        currentImageObjectURL = URL.createObjectURL(nextImageFile);
+        slideshowImage.src = currentImageObjectURL;
+        slideshowImage.onerror = () => {
+            console.warn(`Failed to load image: ${nextImageFile.name}. Skipping.`);
+            URL.revokeObjectURL(currentImageObjectURL); // Revoke broken URL
+            // Remove this image from shownImages so it doesn't get added back to remainingImages
+            // if it was the last one in remainingImages.
+            // Or, add it to a separate "failed" list if we want to track.
+            // For now, just try to display the next one.
+            displayNextImage(); 
+        };
+        
+        shownImages.push(nextImageFile); // Add to shownImages only if successfully loaded (or about to be attempted)
+        slideshowContainer.style.display = 'flex'; // Show the container
+        console.log(`Displaying image: ${nextImageFile.name}`);
+    }
 
-showStartMessage(); // Show message initially, gameLoop starts on key press
-console.log("script.js loaded. Press Enter or Space to start.");
+    function startSlideshowLogic() {
+        const timerValue = parseInt(intervalInput.value, 10) * 1000;
+        
+        // Clear any existing interval
+        if (slideshowIntervalId) {
+            clearInterval(slideshowIntervalId);
+        }
+
+        // Display the first image immediately
+        displayNextImage(); 
+
+        // Start interval for subsequent images, if there's more than one image
+        if (imageFiles.length > 1 || remainingImages.length > 0 ) { // Check if more images are available
+             slideshowIntervalId = setInterval(displayNextImage, Math.max(timerValue, 500)); // Ensure minimum interval
+        } else if (imageFiles.length === 1 && remainingImages.length === 0 && shownImages.length === 1) {
+            // Only one image, no need for an interval. It's already displayed.
+            console.log("Only one image. Slideshow will not loop.");
+        }
+    }
+
+    function stopSlideshow(forceExitFullscreen = false) {
+        console.log("Stopping slideshow...");
+        if (slideshowIntervalId) {
+            clearInterval(slideshowIntervalId);
+            slideshowIntervalId = null;
+        }
+        if (currentImageObjectURL) {
+            URL.revokeObjectURL(currentImageObjectURL);
+            currentImageObjectURL = null;
+        }
+        slideshowContainer.style.display = 'none';
+        slideshowImage.src = '#'; // Clear image
+
+        // Exit fullscreen if document is in fullscreen mode and the slideshow container was the element
+        if (forceExitFullscreen && (document.fullscreenElement === slideshowContainer || document.webkitFullscreenElement === slideshowContainer || document.msFullscreenElement === slideshowContainer)) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            }
+        }
+    }
+
+    function handleFullscreenChange() {
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+        const isSlideshowElementFullscreen = document.fullscreenElement === slideshowContainer || 
+                                           document.webkitFullscreenElement === slideshowContainer || 
+                                           document.msFullscreenElement === slideshowContainer;
+
+        if (isFullscreen && isSlideshowElementFullscreen) {
+            console.log("Entered fullscreen for slideshow. Starting slideshow logic.");
+            slideshowContainer.style.display = 'flex'; // Ensure container is visible
+            startSlideshowLogic();
+        } else {
+            console.log("Exited fullscreen or fullscreen element is not slideshow.");
+            stopSlideshow();
+        }
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // For Safari
+    document.addEventListener('msfullscreenchange', handleFullscreenChange); // For IE11/Edge
+
+    // Optional: Handle Escape key specifically if needed, though fullscreenchange should cover it.
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement)) {
+            // The fullscreenchange event should handle stopping the slideshow.
+            // No explicit stopSlideshow() call here to avoid potential conflicts.
+            console.log("Escape key pressed, expecting fullscreenchange event to handle slideshow stop.");
+        }
+    });
+
+    console.log("Slideshow script loaded. Select images and start.");
+});

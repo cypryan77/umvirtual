@@ -3,20 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Game</title>
+    <title>Fullscreen Slideshow</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>My Game</h1>
-    <div id="instructions">
-        <p>Use <strong>Arrow Keys</strong> to move the snake.</p>
-        <p>Eat the <strong>red food</strong> to grow. The faster you eat, the more points you get!</p>
-        <p>The snake will <strong>pass through walls</strong> and appear on the opposite side.</p>
-        <p>The game <strong>speeds up</strong> as the snake gets longer!</p>
-        <p>Don't collide with your <strong>own tail</strong>!</p>
-        <p>Press <strong>Enter</strong> or <strong>Space</strong> to start/restart the game.</p>
+    <div id="controls">
+        <h2>Slideshow Controls</h2>
+        <p>1. Select a folder with images.</p>
+        <p>2. Set the time (in seconds) between images.</p>
+        <p>3. Click "Start Slideshow". Press 'Esc' to exit fullscreen.</p>
+        <div>
+            <label for="fileInput">Select Images/Folder:</label>
+            <input type="file" id="fileInput" webkitdirectory directory multiple accept="image/*">
+        </div>
+        <div>
+            <label for="intervalInput">Interval (seconds):</label>
+            <input type="number" id="intervalInput" value="3" min="1">
+        </div>
+        <button id="startButton">Start Slideshow</button>
     </div>
-    <canvas id="gameCanvas"></canvas>
+
+    <div id="slideshowContainer">
+        <img id="slideshowImage" src="#" alt="Slideshow Image">
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
