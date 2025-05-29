@@ -1,3 +1,5 @@
+let currentTimerValue = 3000; // Default interval in milliseconds
+
 document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('fileInput');
     const intervalInput = document.getElementById('intervalInput');
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please set a valid interval of at least 0.5 seconds.');
             return;
         }
+        currentTimerValue = timerValue; // Update global timer value
 
         // Initialize image lists for the slideshow session
         remainingImages = [...imageFiles];
@@ -104,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startSlideshowLogic() {
-        const timerValue = parseInt(intervalInput.value, 10) * 1000;
+        // const timerValue = parseInt(intervalInput.value, 10) * 1000; // No longer needed here, use global currentTimerValue
         
         // Clear any existing interval
         if (slideshowIntervalId) {
@@ -115,8 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
         displayNextImage(); 
 
         // Start interval for subsequent images, if there's more than one image
-        if (imageFiles.length > 1 || remainingImages.length > 0 ) { // Check if more images are available
-             slideshowIntervalId = setInterval(displayNextImage, Math.max(timerValue, 500)); // Ensure minimum interval
+        // Use currentTimerValue and ensure it's at least 500ms
+        if (imageFiles.length > 1 || (remainingImages.length > 0 || shownImages.length > 1) ) {
+             slideshowIntervalId = setInterval(displayNextImage, Math.max(currentTimerValue, 500));
         } else if (imageFiles.length === 1 && remainingImages.length === 0 && shownImages.length === 1) {
             // Only one image, no need for an interval. It's already displayed.
             console.log("Only one image. Slideshow will not loop.");
@@ -168,12 +172,78 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // For Safari
     document.addEventListener('msfullscreenchange', handleFullscreenChange); // For IE11/Edge
 
-    // Optional: Handle Escape key specifically if needed, though fullscreenchange should cover it.
+    // Enhanced keydown listener for navigation and Escape
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement)) {
-            // The fullscreenchange event should handle stopping the slideshow.
-            // No explicit stopSlideshow() call here to avoid potential conflicts.
-            console.log("Escape key pressed, expecting fullscreenchange event to handle slideshow stop.");
+        // Check if slideshow is active (i.e., container is visible and in fullscreen)
+        const isSlideshowActive = slideshowContainer.style.display === 'flex' &&
+                                 (document.fullscreenElement === slideshowContainer ||
+                                  document.webkitFullscreenElement === slideshowContainer ||
+                                  document.msFullscreenElement === slideshowContainer);
+
+        if (event.key === 'Escape' && isSlideshowActive) {
+            // fullscreenchange event will handle stopping the slideshow
+            console.log("Escape key pressed during active slideshow, expecting fullscreenchange event.");
+            // No explicit stop needed here, handled by fullscreenchange
+            return; // Prevent further processing in this listener for Escape
+        }
+
+        if (!isSlideshowActive) {
+            return; // Ignore arrow keys if slideshow is not active
+        }
+
+        if (event.key === 'ArrowRight') {
+            console.log("ArrowRight pressed");
+            if (slideshowIntervalId) {
+                clearInterval(slideshowIntervalId);
+            }
+            displayNextImage(); // Show next image immediately
+            // Restart interval only if there are more images to cycle through
+            if (imageFiles.length > 1 || remainingImages.length > 0 || shownImages.length > 1) {
+                 slideshowIntervalId = setInterval(displayNextImage, Math.max(currentTimerValue, 500));
+            }
+        } else if (event.key === 'ArrowLeft') {
+            console.log("ArrowLeft pressed");
+            if (slideshowIntervalId) {
+                clearInterval(slideshowIntervalId);
+            }
+            if (shownImages.length >= 2) { // Need at least two images in shownImages to go to a "previous" one
+                if (currentImageObjectURL) {
+                    URL.revokeObjectURL(currentImageObjectURL);
+                }
+
+                // The current image is the last one in shownImages. Pop it.
+                const currentImageFile = shownImages.pop();
+                // Add it to the beginning of remainingImages (or end, depending on desired behavior)
+                remainingImages.unshift(currentImageFile);
+
+                // The "new" current image is now the last one in shownImages
+                const previousImageFile = shownImages[shownImages.length - 1];
+                
+                currentImageObjectURL = URL.createObjectURL(previousImageFile);
+                slideshowImage.src = currentImageObjectURL;
+                slideshowImage.onerror = () => {
+                    console.warn(`Failed to load previous image: ${previousImageFile.name}. Skipping.`);
+                    URL.revokeObjectURL(currentImageObjectURL);
+                    slideshowImage.src = '#'; // Clear broken image
+                    // Attempt to recover by trying to display the next available image
+                    // This could involve removing the failed 'previousImageFile' from 'shownImages'
+                    // and then calling displayNextImage.
+                    // For simplicity, we'll just log and the user might need to navigate again or slideshow continues.
+                    // A more robust recovery could be:
+                    // shownImages.pop(); // Remove the failed previousImageFile from history as well
+                    // displayNextImage(); // Try to load the next one
+                    alert(`Error loading image: ${previousImageFile.name}. The slideshow might skip it next time.`);
+                };
+                console.log(`Navigated to previous image: ${previousImageFile.name}`);
+            } else {
+                console.log("Not enough images shown to go to a previous one. Displaying current or next if applicable.");
+                // Optionally, re-display current or trigger next if at the very beginning
+                // For now, do nothing if no "previous" is available. The interval will continue or can be manually advanced.
+            }
+            // Restart interval only if there are more images to cycle through
+            if (imageFiles.length > 1 || remainingImages.length > 0 || shownImages.length > 1) {
+                slideshowIntervalId = setInterval(displayNextImage, Math.max(currentTimerValue, 500));
+            }
         }
     });
 
