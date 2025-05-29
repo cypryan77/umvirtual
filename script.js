@@ -7,6 +7,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const slideshowContainer = document.getElementById('slideshowContainer');
     const slideshowImage = document.getElementById('slideshowImage');
 
+    // Load saved interval from localStorage
+    const savedIntervalSeconds = localStorage.getItem('slideshowIntervalSeconds');
+    if (savedIntervalSeconds) {
+        const parsedInterval = parseInt(savedIntervalSeconds, 10);
+        // Ensure the parsed value is a valid number and meets minimum criteria (e.g., >= 0.5 seconds)
+        // Using intervalInput.min directly might be more robust if min value changes.
+        const minInterval = parseFloat(intervalInput.min) || 0.5; // Fallback if input.min is not set or invalid
+        if (!isNaN(parsedInterval) && parsedInterval >= minInterval) {
+            intervalInput.value = parsedInterval.toString();
+            console.log(`Loaded interval time from localStorage: ${parsedInterval}s`);
+        } else {
+            console.log('Saved interval from localStorage is invalid, using default.');
+        }
+    } else {
+        console.log('No saved interval found in localStorage, using default.');
+    }
+
     let imageFiles = [];
     let remainingImages = [];
     let shownImages = [];
@@ -52,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         currentTimerValue = timerValue; // Update global timer value
+        localStorage.setItem('slideshowIntervalSeconds', (timerValue / 1000).toString());
 
         // Initialize image lists for the slideshow session
         remainingImages = [...imageFiles];
